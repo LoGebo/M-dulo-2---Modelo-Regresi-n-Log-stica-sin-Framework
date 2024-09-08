@@ -111,19 +111,89 @@ def log_regression(X, y, theta, alpha, epochs):
   plt.show()
   return theta
 
-# Entrenar el modelo
+from sklearn.model_selection import learning_curve
+def plot_learning_curve(estimator, X, y, cv, scoring='accuracy'):
+    train_sizes, train_scores, val_scores = learning_curve(estimator, X, y, cv=cv, scoring=scoring, n_jobs=-1)
+
+    # Calcular las medias y desviaciones estándar de los scores
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1)
+    val_scores_mean = np.mean(val_scores, axis=1)
+    val_scores_std = np.std(val_scores, axis=1)
+
+    # Graficar la curva de aprendizaje
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_sizes, train_scores_mean, 'o-', color='r', label="Precisión en entrenamiento")
+    plt.plot(train_sizes, val_scores_mean, 'o-', color='g', label="Precisión en validación")
+
+    # Rellenar la región de desviación estándar
+    plt.fill_between(train_sizes, train_scores_mean - train_scores_std, train_scores_mean + train_scores_std, alpha=0.1, color="r")
+    plt.fill_between(train_sizes, val_scores_mean - val_scores_std, val_scores_mean + val_scores_std, alpha=0.1, color="g")
+
+    # Etiquetas y título
+    plt.title("Curva de Aprendizaje para el Modelo de Regresión Logística")
+    plt.xlabel("Tamaño del conjunto de entrenamiento")
+    plt.ylabel("Precisión")
+    plt.legend(loc="best")
+    plt.grid()
+    plt.show()
 
 #alpha = 0.01
 #epochs = 10000
 
 #theta_final = log_regression(X_vect, y_train, theta, alpha, epochs)
 
-##2DO ENTREGABLE USO DE FRAMEWORK PARA ENTRENAR EL MODELO
-
-# Importamos las librerías necesarias para el Grid Search
+#sin utilizar los hiperparametros optimizados
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, mean_squared_error
+
+# Define los hiperparámetros sin optimizar
+C_value = 0.01
+max_iter_value = 500
+solver_value = 'lbfgs'
+penalty_value = 'l2'
+
+log_reg = LogisticRegression(C=C_value, max_iter=max_iter_value, solver=solver_value, penalty=penalty_value)
+
+# Entrena el modelo
+log_reg.fit(X_train_scaled, y_train)
+
+# Hacer predicciones con el conjunto de prueba
+y_pred_test = log_reg.predict(X_test_scaled)
+
+# Calcular métricas
+accuracy = accuracy_score(y_test, y_pred_test)
+print(f'Precisión del modelo: {accuracy * 100:.2f}%')
+
+conf_matrix = confusion_matrix(y_test, y_pred_test)
+print("Matriz de Confusión:")
+print(conf_matrix)
+
+# Otras métricas
+precision = precision_score(y_test, y_pred_test) * 100
+recall = recall_score(y_test, y_pred_test) * 100
+f1 = f1_score(y_test, y_pred_test) * 100
+
+print(f'Precision: {precision:.2f}%')
+print(f'Recall: {recall:.2f}%')
+print(f'F1-Score: {f1:.2f}%')
+
+metrics_table = pd.DataFrame({
+    'Metric': ['Precision', 'Recall', 'F1-Score'],
+    'Score (%)': [precision, recall, f1]
+})
+
+print(metrics_table)
+
+# Cross-validation con StratifiedKFold
+cv = StratifiedKFold(n_splits=5)
+
+# Graficar la curva de aprendizaje con el modelo actual
+plot_learning_curve(log_reg, X_train_scaled, y_train, cv=cv)
+
+##2DO ENTREGABLE USO DE FRAMEWORK PARA ENTRENAR EL MODELO utilizando grid search para optimizar los hiperparametros
+
 
 param_grid = {
     'C': [0.001, 0.01, 0.1, 1, 10, 100],
@@ -183,6 +253,14 @@ metrics_table = pd.DataFrame({
 
 # Mostramos la tabla
 print(metrics_table)
+
+# PARA MODELO ENTRENADO CON REGRESION LOGISTICA DE SK LEARN
+from sklearn.model_selection import StratifiedKFold
+# Cross-validation con 5 pliegues
+cv = StratifiedKFold(n_splits=5)
+
+# Llamar a la función de la curva de aprendizaje
+plot_learning_curve(log_reg, X_train_scaled, y_train, cv=cv)
 
 from sklearn.model_selection import cross_val_score
 
