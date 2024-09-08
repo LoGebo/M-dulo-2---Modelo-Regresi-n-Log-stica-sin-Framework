@@ -9,6 +9,17 @@ Original file is located at
 ## Jesús Daniel Martínez García A00833591
 """
 
+# Import drive to connect and interact with Google Drive (so we can import the data)
+# Note: This may take a while, but remember to give permission
+from google.colab import drive
+
+drive.mount("/content/gdrive")
+!pwd # Print working directory
+
+# Commented out IPython magic to ensure Python compatibility.
+# Navigate to the path where the dataset is stored and read the csv file
+# %cd "/content/gdrive/MyDrive/IA/NOTEBOOKS"
+!ls # List files located in defined folder
 
 import pandas as pd
 
@@ -22,6 +33,7 @@ df['diagnosis'] = df['diagnosis'].replace({'B': 0, 'M': 1})
 df_x = df[['radius_mean', 'texture_mean', 'perimeter_mean', 'area_mean', 'smoothness_mean',
            'compactness_mean', 'concavity_mean', 'concave points_mean']]
 
+
 ## Nuestra variable a predecir con la regresión logística será el diagnóstico (0 = Benigno, 1 = Maligno)
 df_y = df['diagnosis']
 
@@ -32,7 +44,8 @@ from sklearn.model_selection import train_test_split
 
 #Esto nos servirá para ver si el modelo generaliza bien con otros datos
 
-X_train, X_test, y_train, y_test = train_test_split(df_x, df_y, test_size=0.2, random_state=42)
+X_train, X_temp, y_train, y_temp = train_test_split(df_x, df_y, test_size=0.3, random_state=42)
+X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
 ## Escalar las features nos permitira que el modelo trate a todas las features con igual de importancia
 
@@ -46,6 +59,8 @@ X_train_scaled = sc.fit_transform(X_train)
 
 #transform utilizda en los datos de prueba
 X_test_scaled = sc.transform(X_test)
+
+X_val_scaled = sc.transform(X_val)
 
 ##inicializacion de theta y columna de 1sss
 
@@ -73,8 +88,6 @@ import matplotlib.pyplot as plt
 def sigmoid_function(X):
     return 1 / (1 + np.exp(-X))
 
-
-
 ##Regresión logística, utiliza gradient descent para ajustar las thetas, x son los features, y la label,
 #alpha el learning reate y los epochs la cantidad de veces que se actulizarán los parametros
 def log_regression(X, y, theta, alpha, epochs):
@@ -100,49 +113,146 @@ def log_regression(X, y, theta, alpha, epochs):
 
 # Entrenar el modelo
 
-alpha = 0.01
-epochs = 10000
+#alpha = 0.01
+#epochs = 10000
 
-theta_final = log_regression(X_vect, y_train, theta, alpha, epochs)
+#theta_final = log_regression(X_vect, y_train, theta, alpha, epochs)
 
-def predict(X, theta):
-    probabilities = sigmoid_function(np.dot(X, theta))
-    return probabilities >= 0.5  # Si la probabilidad es mayor o igual a 0.5, predice 1, sino nel 0
+##2DO ENTREGABLE USO DE FRAMEWORK PARA ENTRENAR EL MODELO
 
+# Importamos las librerías necesarias para el Grid Search
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, confusion_matrix, mean_squared_error
 
+param_grid = {
+    'C': [0.001, 0.01, 0.1, 1, 10, 100],
+    'max_iter': [100, 500, 1000, 5000],
+    'solver': ['liblinear', 'lbfgs'],
+    'penalty': ['l2'],
+}
 
-# Asegurarnos de q theta_final tiene el tipo de dato correcto
-theta_final = theta_final.astype(float)
+# Inicializamos el modelo de regresión logística
+log_reg = LogisticRegression()
 
-# Hacer predicciones con el conjunto de prueba
-y_pred_test = predict(X_test_vect, theta_final)
+# Configuramos el Grid Search
+grid_search = GridSearchCV(estimator=log_reg, param_grid=param_grid, cv=5, scoring='accuracy', verbose=1, n_jobs=-1)
 
-# Convertir las predicciones booleanas en 0 y 1 para calcular las métricas
-y_pred_test = y_pred_test.astype(int)
+# Entrenamos el modelo con el Grid Search
+grid_search.fit(X_train_scaled, y_train)
 
-# Aplanar los arrays si tibnes multidimension
-y_test = np.array(y_test).ravel()
-y_pred_test = np.array(y_pred_test).ravel()
+# Imprimimos los mejores hiperparámetros encontrados
+print(f"Mejores hiperparámetros: {grid_search.best_params_}")
 
-# Calcular la precisión manualmente
-accuracy_manual = np.mean(y_test == y_pred_test)
-print(f'Precisión del modelo: {accuracy_manual * 100:.2f}%')
+# Utilizamos el mejor modelo para hacer predicciones
+best_log_reg = grid_search.best_estimator_
 
+# Hacemos predicciones con los datos de prueba
+y_pred_test = best_log_reg.predict(X_test_scaled)
 
+# Calculamos la precisión del modelo
+accuracy = accuracy_score(y_test, y_pred_test)
+print(f'Precisión del modelo con Grid Search: {accuracy * 100:.2f}%')
 
-# Usa pandas para generar la matriz de confusión
-conf_matrix = pd.crosstab(pd.Series(y_test, name='Actual'), pd.Series(y_pred_test, name='Predicted'))
-
-
+# Generamos la matriz de confusión
+conf_matrix = confusion_matrix(y_test, y_pred_test)
+print("Matriz de Confusión:")
 print(conf_matrix)
 
+from sklearn.metrics import precision_score, recall_score, f1_score
 
-accuracy = np.mean(y_test == y_pred_test)
+# Calculamos las otras métricas de rendimiento
+precision = precision_score(y_test, y_pred_test) * 100
+recall = recall_score(y_test, y_pred_test) * 100
+f1 = f1_score(y_test, y_pred_test) * 100
+accuracy = accuracy_score(y_test, y_pred_test) * 100
+
+# Imprimimos las métricas
+print(f'Precision: {precision:.2f}%')
+print(f'Recall: {recall:.2f}%')
+print(f'F1-Score: {f1:.2f}%')
 
 
-print(f'Exactitud calculada.   : {accuracy * 100:.2f}%')
+# Generamos la tabla de métricas
+import pandas as pd
 
-"""##Reporte.
+metrics_table = pd.DataFrame({
+    'Metric': ['Precision', 'Recall', 'F1-Score'],
+    'Score (%)': [precision, recall, f1]
+})
+
+# Mostramos la tabla
+print(metrics_table)
+
+from sklearn.model_selection import cross_val_score
+
+# Hacemos cross-validation con el mejor modelo encontrado
+cv_scores = cross_val_score(best_log_reg, X_train_scaled, y_train, cv=5)
+
+print(f'Cross-Validation Scores: {cv_scores}')
+print(f'Promedio de Cross-Validation Score: {cv_scores.mean()}')
+
+# Evaluamos el modelo con el conjunto de validación
+y_val_pred = best_log_reg.predict(X_val_scaled)
+val_accuracy = accuracy_score(y_val, y_val_pred)
+print(f'Precisión del modelo con el conjunto de validación: {val_accuracy * 100:.2f}%')
+
+# Evaluación final en el conjunto de prueba
+y_test_pred = best_log_reg.predict(X_test_scaled)
+test_accuracy = accuracy_score(y_test, y_test_pred)
+print(f'Precisión del modelo con el conjunto de prueba: {test_accuracy * 100:.2f}%')
+
+# Valores de C (controlan la regularización) para probar
+C_values = np.logspace(-3, 3, 50)  # Desde 0.001 hasta 1000
+
+train_mse = []
+test_mse = []
+train_accuracy = []
+test_accuracy = []
+
+# Iteramos sobre diferentes valores de C
+for C in C_values:
+    # Entrenamos el modelo de regresión logística
+    log_reg = LogisticRegression(C=C, max_iter=10000)
+    log_reg.fit(X_train_scaled, y_train)
+
+    # Predicciones para el conjunto de entrenamiento y prueba
+    y_train_pred = log_reg.predict(X_train_scaled)
+    y_test_pred = log_reg.predict(X_test_scaled)
+
+    # Calculamos MSE para entrenamiento y prueba
+    train_mse.append(mean_squared_error(y_train, y_train_pred))
+    test_mse.append(mean_squared_error(y_test, y_test_pred))
+
+    # Calculamos la precisión (accuracy)
+    train_accuracy.append(accuracy_score(y_train, y_train_pred))
+    test_accuracy.append(accuracy_score(y_test, y_test_pred))
+
+# Graficamos MSE para los conjuntos de entrenamiento y prueba
+plt.figure(figsize=(10, 6))
+plt.plot(C_values, train_mse, label='Train MSE', color='blue', marker='o')
+plt.plot(C_values, test_mse, label='Test MSE', color='orange', marker='o')
+plt.xscale('log')  # Escala logarítmica en el eje x (para ver mejor los valores de C)
+plt.xlabel('Regularization parameter (C)')
+plt.ylabel('Mean Squared Error')
+plt.title('MSE vs Regularization (C)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Graficamos la precisión (accuracy) para los conjuntos de entrenamiento y prueba
+plt.figure(figsize=(10, 6))
+plt.plot(C_values, train_accuracy, label='Train Accuracy', color='blue', marker='o')
+plt.plot(C_values, test_accuracy, label='Test Accuracy', color='orange', marker='o')
+plt.xscale('log')  # Escala logarítmica en el eje x (para ver mejor los valores de C)
+plt.xlabel('Regularization parameter (C)')
+plt.ylabel('Accuracy')
+plt.title('Accuracy vs Regularization (C)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+"""##Reporte para primera entrega.
 
 Para el dataset de cáncer data buscamos predecir el label de diagnosis donde m representaba cáncer maligno y b cáncer benigno. Se implementa el modelo de regresión logística al ser un algoritmo efectivo para el problema que representa, viendo que es una clasificación binaria.
 
